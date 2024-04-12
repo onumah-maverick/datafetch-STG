@@ -51,7 +51,7 @@ def get_store_id():
     In this code I made start date and end date the same. It can be modified as suited
     """
     global start_date
-    start_date = end_date = (dt.datetime.now() - dt.timedelta(days=3)).strftime("%Y-%m-%d") # correct this
+    start_date = end_date = (dt.datetime.now() - dt.timedelta(days=5)).strftime("%Y-%m-%d") # correct this
     print(start_date)
     # set api key
     api_key = 'f803b1f2-486e-4de7-9e6c-faa45366bb28'
@@ -123,11 +123,32 @@ def data_transform(subj_id, survey_id, api_key, username, password):
         store_info = df_result_extract.iloc[-2:].transpose().reset_index(drop=True) # picks subject number and upload date
         store_info = store_info.rename(columns=store_info.iloc[0]).drop(store_info.index[0]) # remove headers
         store_info.reset_index()
-
+      
         # New items
         # Extracting the Outlet code
-        df_one = df_result_extract.loc[df_result_extract.index[df_result_extract['Value'] == 'Outlet_Code_'][0]:df_result_extract.index[df_result_extract['Value'] == 'OutletName'][0], :]
-        df_one = df_one.drop(df_one.index[len(df_one)-1])
+        # Had to create two instances for how api returns outlet code and outlet name
+        df_one = pd.DataFrame()
+        if not df_result_extract.empty:
+            try:
+                df_one_main = df_result_extract.loc[df_result_extract.index[df_result_extract['Value'] == 'Outlet_Code_'][0]:df_result_extract.index[df_result_extract['Value'] == 'OutletName'][0], :]
+            except IndexError:
+                print("Subsetting 1 failed!")
+                try:
+                    df_one_annex = df_result_extract.loc[df_result_extract.index[df_result_extract['Value'] == 'Outlet_Name'][0]:df_result_extract.index[df_result_extract['Value'] == 'Outlet_Code'][0]+1, :]
+                except IndexError:
+                    print("Subsetting 2 failed!")
+                else:
+                    if not df_one_annex.empty:
+                        df_one = df_one_annex.reset_index(drop=True)
+                        df_one = df_one.iloc[[2,3],:]
+            else:
+                if not df_one_main.empty:
+                    df_one = df_one_main
+                else:
+                    print("Subsetting 1 assignment failed!")
+        else:
+            print("The dataframe is empty")
+        
         store_id = df_one['Value'].to_frame().reset_index(drop=True)
         store_id = store_id.rename(columns=store_id.iloc[0]).drop(store_id.index[0]) # remove headers
         store_id.reset_index()
@@ -141,8 +162,7 @@ def data_transform(subj_id, survey_id, api_key, username, password):
         df_store_details = pd.concat([store_info, store_id], axis=1)
 
         ## Sorting out item details, rearranging them to all exist in one column per variable type
-        # # Instantiate empty dict
-        transformed_data = {}
+        transformed_data = {} # Instantiate empty dict
 
         # # Loop through the DataFrame in steps of 2
         for i in range(0, len(df_items_use), 2):
@@ -172,11 +192,15 @@ def data_transform(subj_id, survey_id, api_key, username, password):
         df_items_store_details = pd.concat([df_store_details, melted_df_final], axis=1)
 
         ## Fill in remaining rows of missing values
-        df_items_store_details['Outlet_Code_'] = df_items_store_details['Outlet_Code_'].fillna(df_items_store_details['Outlet_Code_'].iloc[0])
+        # Select which outlet code to use
+        if 'Outlet_Code_' in df_items_store_details.columns: 
+            df_items_store_details['Outlet_Code_'] = df_items_store_details['Outlet_Code_'].fillna(df_items_store_details['Outlet_Code_'].iloc[0])
+        elif 'Outlet_Code' in df_items_store_details.columns:
+            df_items_store_details['Outlet_Code'] = df_items_store_details['Outlet_Code'].fillna(df_items_store_details['Outlet_Code'].iloc[0])
         df_items_store_details['Upload'] = df_items_store_details['Upload'].fillna(df_items_store_details['Upload'].iloc[0])
         df_items_store_details['SubjectNum'] = df_items_store_details['SubjectNum'].fillna(df_items_store_details['SubjectNum'].iloc[0])
     except IndexError:
-        print('No new items were found in this store')
+        print("No new items found.")
     else:
         return df_items_store_details
 ### ---------------------------------------------------------------------------------------------------------------------------------------
@@ -201,9 +225,9 @@ if __name__ == "__main__":
         merged_df = pd.concat(new_final_df, axis=0)
         merged_df.insert(0, 'Period', dt.datetime.today().replace(day=1).date().strftime('%Y-%m-%d')) # Add 'period' column
         merged_df.to_excel(f'new_items_{start_date}.xlsx', index=False)
-        merged_df.to_sql(con=my_conn, name='new_items', if_exists='append', index=False)
-    except ValueError:
-        print("The dataframes are empty!")        
+        merged_df.to_sql(con=my_conn, name='new_items', if_exists='replace', index=False)
+    except KeyError:
+        print("No subject ids for the day!")       
 
     # End timer
     end = time.time()
