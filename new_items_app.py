@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 from mysql.connector.constants import ClientFlag
 from requests.auth import HTTPBasicAuth
 from sqlalchemy import false # not known
+from sqlalchemy import create_engine
 from tqdm import tqdm
 import xml.etree.ElementTree as ET
 import csv
@@ -22,9 +23,11 @@ import time
 
 # Set api details
 api_key = 'f803b1f2-486e-4de7-9e6c-faa45366bb28'
-username = "Theophilus_Aidoo"
-password = "m@v12345"
+username = "Andrew Mensah-Onumah"
+password = "M@verick12345"
 
+# Connection to MySQL Engine
+my_conn = create_engine("mysql+mysqldb://root:T0pGunMaver123@localhost/maverick_db")
 # ----------------------------------------------------------------------------------------------------------------------------------------
 def data_formatting(surveyIDs): # consider changing this argument
         '''
@@ -198,6 +201,7 @@ if __name__ == "__main__":
         merged_df = pd.concat(new_final_df, axis=0)
         merged_df.insert(0, 'Period', dt.datetime.today().replace(day=1).date().strftime('%Y-%m-%d')) # Add 'period' column
         merged_df.to_excel(f'new_items_{start_date}.xlsx', index=False)
+        merged_df.to_sql(con=my_conn, name='new_items', if_exists='append', index=False)
     except ValueError:
         print("The dataframes are empty!")        
 
