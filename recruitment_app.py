@@ -52,7 +52,7 @@ def get_store_id():
     In this code I made start date and end date the same. It can be modified as suited
     """
     global start_date
-    start_date = end_date = (dt.datetime.now() - dt.timedelta(days=8)).strftime("%Y-%m-%d") # correct this
+    start_date = end_date = (dt.datetime.now() - dt.timedelta(days=2)).strftime("%Y-%m-%d") # correct this
     print(start_date)
 
     # set api key
@@ -144,7 +144,8 @@ def data_transform(subj_id, survey_id, api_key, username, password):
                     df_one = df_one.iloc[[2,3],:]
         else:
             if not df_one_main.empty:
-                df_one = df_one_main
+                df_one = df_one_main.reset_index(drop=True)
+                df_one = df_one.iloc[[0,1],:]
             else:
                 print("Subsetting 1 assignment failed!")
     else:
